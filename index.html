@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <title>Yasher System | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Подключение JS SDK PocketBase -->
+    <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.21.1/dist/pocketbase.umd.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Подключение Web SDK РСЯ -->
+    <script>window.yaContextCb=window.yaContextCb||[]</script>
+    <script src="https://yandex.ru/ads/system/context.js" async></script>
+
+    <style>
+        body { 
+            font-family: 'Montserrat', sans-serif; 
+            background-color: #0f172a; 
+            color: #f8fafc;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2322c55e' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4H6zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            padding-bottom: 60px;
+        }
+        .yasher-card { 
+            background: rgba(30, 41, 59, 0.7); 
+            backdrop-filter: blur(16px);
+            border-radius: 20px; 
+            border: 1px solid rgba(34, 197, 94, 0.15); 
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(34, 197, 94, 0.02); 
+        }
+        .yasher-btn { 
+            background: linear-gradient(135deg, #16a34a, #22c55e); 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: 0 4px 15px -3px rgba(34, 197, 94, 0.3);
+        }
+        .yasher-btn:hover { 
+            background: linear-gradient(135deg, #15803d, #16a34a); 
+            transform: translateY(-2px) scale(1.02); 
+            box-shadow: 0 10px 25px -3px rgba(34, 197, 94, 0.5); 
+        }
+        .btn-res { 
+            transition: all 0.2s; 
+            padding: 8px 4px; 
+            border-radius: 8px; 
+            font-weight: 900; 
+            font-size: 9px; 
+            color: white;
+            text-transform: uppercase;
+            cursor: pointer;
+            letter-spacing: 0.02em;
+            text-align: center;
+        }
+        @media (min-width: 640px) {
+            .btn-res { padding: 10px 16px; font-size: 11px; border-radius: 10px; letter-spacing: 0.05em; }
+        }
+        .btn-res:hover { transform: scale(1.05); filter: brightness(1.2); }
+        .btn-res:active { transform: scale(0.95); }
+
+        #loadingOverlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; backdrop-filter: blur(8px); }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        input, select {
+            background: rgba(15, 23, 42, 0.6) !important;
+            color: #f8fafc !important;
+            border-color: rgba(51, 65, 85, 0.8) !important;
+        }
+        input:focus, select:focus {
+            border-color: #22c55e !important;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2) !important;
+        }
+
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        @keyframes pulseGlow {
+            0%, 100% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 15px rgba(239, 68, 68, 0.5), inset 0 0 10px rgba(239, 68, 68, 0.2); }
+            50% { border-color: rgba(234, 179, 8, 1); box-shadow: 0 0 25px rgba(234, 179, 8, 0.8), inset 0 0 15px rgba(234, 179, 8, 0.4); }
+        }
+        .ad-pulsing { animation: pulseGlow 1.2s infinite ease-in-out; }
+
+        .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #22c55e; border-radius: 10px; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="p-4 md:p-8 lg:p-12 min-h-screen">
+
+    <div id="loadingOverlay" class="flex items-center justify-center">
+        <div class="text-center">
+            <div class="w-14 h-14 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p class="mt-4 font-bold text-slate-500 uppercase text-[10px] tracking-[0.3em]">Подключение к PocketBase...</p>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+            <div class="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto justify-between md:justify-start">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 bg-green-600 rounded-2xl flex items-center justify-center text-white text-3xl font-black shadow-lg shrink-0">Y</div>
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">YASHER <span class="text-green-500">SYSTEM</span></h1>
+                        <p class="text-[10px] font-bold text-green-500/70 uppercase tracking-widest">PocketBase Edition</p>
+                    </div>
+                </div>
+                
+                <div class="relative w-full sm:w-auto">
+                    <select id="userSelect" onchange="changeUser()" class="appearance-none bg-slate-800/80 border border-green-500/30 text-white font-bold py-2 pl-4 pr-10 rounded-xl focus:outline-none focus:border-green-500 transition-all w-full sm:w-auto cursor-pointer shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+                        <option value="Йорг1">Йорг1</option>
+                        <option value="Йорг2">Йорг2</option>
+                        <option value="Йорг3">Йорг3</option>
+                        <option value="Йорг4">Йорг4</option>
+                        <option value="Йорг5">Йорг5</option>
+                        <option value="Серр1">Серр1</option>
+                        <option value="Серр2">Серр2</option>
+                        <option value="Серр3">Серр3</option>
+                        <option value="Серр4">Серр4</option>
+                        <option value="Серр5">Серр5</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-green-500">
+                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 sm:gap-4 w-full md:w-auto items-center">
+                <div class="yasher-card flex-1 md:flex-none px-3 sm:px-8 py-3 sm:py-4 text-center min-w-[120px] sm:min-w-[160px]">
+                    <p class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase mb-1">Баланс (Bank)</p>
+                    <p id="currentBalance" class="text-lg sm:text-2xl font-black text-white">5 000 ₽</p>
+                </div>
+                <div class="yasher-card flex-1 md:flex-none px-3 sm:px-8 py-3 sm:py-4 text-center border-green-500/30 bg-green-500/10 min-w-[90px] sm:min-w-[120px]">
+                    <p class="text-[9px] sm:text-[10px] font-bold text-green-400 uppercase mb-1">ROI %</p>
+                    <p id="currentROI" class="text-lg sm:text-2xl font-black text-green-400">0%</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Form Side -->
+            <div class="lg:col-span-4">
+                <div class="yasher-card p-4 sm:p-8 sticky top-8">
+                    <h2 class="text-xs font-black text-green-500/80 uppercase tracking-widest mb-4 sm:mb-6 border-b border-slate-700/50 pb-2">Новая ставка</h2>
+                    <form id="betForm" class="space-y-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 ml-1">Матч</label>
+                            <input type="text" id="match" placeholder="Челси - Бавария" class="w-full p-4 text-base sm:text-sm border border-slate-200 rounded-xl outline-none focus:border-green-500 font-bold" required>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 ml-1">Событие</label>
+                            <input type="text" id="event" list="event-options" placeholder="Тотал Б 2.5" class="w-full p-4 text-base sm:text-sm border border-slate-200 rounded-xl outline-none focus:border-green-500 font-bold" required>
+                            <datalist id="event-options">
+                                <option value="П1"><option value="П2"><option value="Х"><option value="Тотал Б 2.5"><option value="Тотал М 2.5"><option value="ОЗ - Да">
+                            </datalist>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 ml-1">Коэфф.</label>
+                                <input type="number" id="odds" step="0.01" placeholder="1.80" class="w-full p-4 text-base sm:text-sm border border-slate-200 rounded-xl outline-none focus:border-green-500 font-bold" required>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 ml-1">Сумма (₽)</label>
+                                <input type="number" id="amount" value="150" placeholder="150" class="w-full p-4 text-base sm:text-sm border border-slate-200 rounded-xl outline-none focus:border-green-500 font-black text-green-700" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full yasher-btn text-white font-black py-5 rounded-xl uppercase text-xs tracking-widest mt-2 flex items-center justify-center gap-2 group">
+                            Сделать ставку <span class="opacity-40 group-hover:opacity-100 transition-opacity text-sm">😈</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- List Side -->
+            <div class="lg:col-span-8">
+                <div class="yasher-card p-4 sm:p-8 min-h-[500px] flex flex-col">
+                    <div class="flex justify-between items-center mb-4 sm:mb-6 border-b border-slate-700/50 pb-4">
+                        <div class="flex gap-4 sm:gap-6 overflow-x-auto hide-scrollbar whitespace-nowrap w-full pr-4">
+                            <button onclick="setTab('active')" id="tab-active" class="text-xs sm:text-sm font-black uppercase tracking-widest text-green-500 border-b-2 border-green-500 pb-1 transition-all shrink-0">Активные</button>
+                            <button onclick="setTab('history')" id="tab-history" class="text-xs sm:text-sm font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 pb-1 transition-all border-b-2 border-transparent shrink-0">История</button>
+                            <button onclick="setTab('stats')" id="tab-stats" class="text-xs sm:text-sm font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 pb-1 transition-all border-b-2 border-transparent shrink-0">Статистика</button>
+                        </div>
+                        <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-green-400 transition-all bg-slate-800/50 rounded-lg border border-slate-700/50 shrink-0 ml-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        </button>
+                    </div>
+
+                    <div id="betsContainer" class="space-y-4 flex-1 overflow-y-auto custom-scroll pr-2 max-h-[600px]"></div>
+                    
+                    <div id="statsContainer" class="hidden flex-1 w-full h-full min-h-[400px]">
+                        <canvas id="profitChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фиксированный рекламный блок -->
+    <div id="sticky-ad-container" class="fixed bottom-0 left-0 w-full z-50 bg-slate-900/95 backdrop-blur-md border-t border-slate-700/80">
+        <div class="w-full relative">
+            <div id="ad-placeholder" class="w-full relative py-2 px-4 bg-gradient-to-r from-red-900/50 via-amber-900/50 to-red-900/50 border-t-2 border-b-2 ad-pulsing text-center">
+                <button id="close-ad-btn" onclick="closeStickyAd()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 bg-slate-800/80 hover:bg-red-600 text-slate-300 hover:text-white w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition-colors border border-slate-600 z-10">✕</button>
+                <a href="https://xnxx.com" target="_blank" rel="noopener noreferrer" class="block w-full">
+                    <div class="flex items-center justify-center gap-2">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+                        <span class="text-[9px] font-black text-amber-400 uppercase tracking-widest">ШОК-НОВОСТЬ! 🔥</span>
+                        <p class="text-[11px] sm:text-xs font-black text-white tracking-wide uppercase inline">
+                            Система переведена на PocketBase... <span class="text-amber-300 underline decoration-red-500">Всё летает без задержек!</span>
+                        </p>
+                    </div>
+                </a>
+            </div>
+            <div id="yandex_rtb_R-A-15494483-1" class="w-full text-center"></div>
+        </div>
+    </div>
+
+    <script>
+        setTimeout(() => {
+            const closeBtn = document.getElementById('close-ad-btn');
+            if (closeBtn) closeBtn.classList.remove('hidden');
+        }, 20000);
+
+        function closeStickyAd() {
+            document.getElementById('sticky-ad-container').style.display = 'none';
+        }
+
+        // Подключение к локальному серверу PocketBase
+        const pb = new PocketBase('http://127.0.0.1:8090');
+
+        let allBets = [];
+        let currentTab = 'active';
+        let currentUser = 'Йорг1';
+        let profitChartInstance = null;
+        const INITIAL_BANK = 5000;
+
+        function setTab(tab) {
+            currentTab = tab;
+            const activeClass = "text-xs sm:text-sm font-black uppercase tracking-widest text-green-500 border-b-2 border-green-500 pb-1 transition-all shrink-0";
+            const inactiveClass = "text-xs sm:text-sm font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 pb-1 transition-all border-b-2 border-transparent shrink-0";
+            
+            document.getElementById('tab-active').className = tab === 'active' ? activeClass : inactiveClass;
+            document.getElementById('tab-history').className = tab === 'history' ? activeClass : inactiveClass;
+            document.getElementById('tab-stats').className = tab === 'stats' ? activeClass : inactiveClass;
+            
+            if (tab === 'stats') {
+                document.getElementById('betsContainer').classList.add('hidden');
+                document.getElementById('statsContainer').classList.remove('hidden');
+                renderChart();
+            } else {
+                document.getElementById('betsContainer').classList.remove('hidden');
+                document.getElementById('statsContainer').classList.add('hidden');
+                renderBets();
+            }
+        }
+
+        async function refreshData(showLoader = true) {
+            if (showLoader) document.getElementById('loadingOverlay').style.display = 'flex';
+            try {
+                currentUser = document.getElementById('userSelect').value;
+                
+                // Фильтрация записей из PocketBase по выбранному пользователю
+                const records = await pb.collection('Stavki').getFullList({
+                    filter: `user = "${currentUser}"`,
+                    sort: '-created',
+                });
+
+                allBets = records.map(r => ({
+                    id: r.id,
+                    match: r.sobytie,
+                    event: r.tip_stavki,
+                    odds: r.koeff,
+                    amount: r.stavka,
+                    result: r.result || 'В процессе',
+                    profit: r.profit || 0,
+                    created: r.created
+                }));
+
+                calculateBalanceAndROI();
+                if (currentTab === 'stats') renderChart();
+                else renderBets();
+
+            } catch (e) {
+                console.error("Ошибка загрузки из PocketBase:", e);
+            } finally {
+                if (showLoader) document.getElementById('loadingOverlay').style.display = 'none';
+            }
+        }
+
+        function calculateBalanceAndROI() {
+            let totalSpent = 0;
+            let totalReturned = 0;
+
+            allBets.forEach(b => {
+                if (b.result !== 'В процессе') {
+                    totalSpent += b.amount;
+                    if (b.result === 'Выигрыш') {
+                        totalReturned += (b.amount * b.odds);
+                    } else if (b.result === 'Возврат') {
+                        totalReturned += b.amount;
+                    }
+                }
+            });
+
+            const currentBalance = INITIAL_BANK - totalSpent + totalReturned;
+            const netProfit = totalReturned - totalSpent;
+            const roi = totalSpent > 0 ? ((netProfit / totalSpent) * 100).toFixed(1) : 0;
+
+            document.getElementById('currentBalance').innerText = Math.round(currentBalance).toLocaleString('ru-RU') + ' ₽';
+            document.getElementById('currentROI').innerText = roi + '%';
+        }
+
+        function changeUser() {
+            refreshData(true);
+        }
+
+        async function updateStatus(id, newStatus) {
+            const bet = allBets.find(b => b.id === id);
+            if (!bet) return;
+
+            let calculatedProfit = 0;
+            if (newStatus === 'Выигрыш') {
+                calculatedProfit = (bet.amount * bet.odds) - bet.amount;
+            } else if (newStatus === 'Проигрыш') {
+                calculatedProfit = -bet.amount;
+            } else if (newStatus === 'Возврат') {
+                calculatedProfit = 0;
+            }
+
+            bet.result = newStatus;
+            bet.profit = calculatedProfit;
+
+            calculateBalanceAndROI();
+            renderBets();
+
+            try {
+                await pb.collection('Stavki').update(id, {
+                    result: newStatus,
+                    profit: calculatedProfit
+                });
+            } catch (err) {
+                console.error("Ошибка обновления статуса:", err);
+            }
+        }
+
+        async function deleteBet(id) {
+            if (!confirm('Удалить эту ставку?')) return;
+            
+            allBets = allBets.filter(b => b.id !== id);
+            calculateBalanceAndROI();
+            renderBets();
+
+            try {
+                await pb.collection('Stavki').delete(id);
+            } catch (err) {
+                console.error("Ошибка удаления:", err);
+            }
+        }
+
+        document.getElementById('betForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const match = document.getElementById('match').value;
+            const event = document.getElementById('event').value;
+            const odds = parseFloat(document.getElementById('odds').value.replace(',', '.'));
+            const amount = parseFloat(document.getElementById('amount').value);
+
+            const newRecordData = {
+                user: currentUser,
+                sobytie: match,
+                tip_stavki: event,
+                koeff: odds,
+                stavka: amount,
+                result: 'В процессе',
+                profit: 0
+            };
+
+            document.getElementById('match').value = '';
+            document.getElementById('event').value = '';
+            document.getElementById('odds').value = '';
+
+            try {
+                const record = await pb.collection('Stavki').create(newRecordData);
+                allBets.unshift({
+                    id: record.id,
+                    match: record.sobytie,
+                    event: record.tip_stavki,
+                    odds: record.koeff,
+                    amount: record.stavka,
+                    result: record.result,
+                    profit: record.profit,
+                    created: record.created
+                });
+
+                calculateBalanceAndROI();
+                renderBets();
+            } catch (err) {
+                console.error("Ошибка создания ставки:", err);
+                alert("Не удалось сохранить ставку в PocketBase");
+            }
+        };
+
+        function renderBets() {
+            const container = document.getElementById('betsContainer');
+            const filtered = allBets.filter(item => {
+                if (currentTab === 'active') return item.result === 'В процессе';
+                return item.result !== 'В процессе';
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 text-slate-300 font-bold uppercase text-[10px] tracking-widest">${currentTab === 'active' ? 'Нет активных ставок' : 'История пуста'}</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => {
+                const isHistory = currentTab === 'history';
+                let resultBadge = '';
+                let profitText = '';
+                
+                if (isHistory) {
+                    if (item.result === 'Выигрыш') {
+                        resultBadge = `<span class="bg-green-500/20 border border-green-500/30 text-green-400 px-3 py-1 rounded-lg text-[10px] font-black uppercase">ВЫИГРЫШ</span>`;
+                        profitText = `<span class="text-green-400 font-black">+${item.profit.toFixed(0)} ₽</span>`;
+                    } else if (item.result === 'Проигрыш') {
+                        resultBadge = `<span class="bg-red-500/20 border border-red-500/30 text-red-400 px-3 py-1 rounded-lg text-[10px] font-black uppercase">ПРОИГРЫШ</span>`;
+                        profitText = `<span class="text-red-400 font-black">${item.profit.toFixed(0)} ₽</span>`;
+                    } else {
+                        resultBadge = `<span class="bg-slate-700/50 border border-slate-600/50 text-slate-400 px-3 py-1 rounded-lg text-[10px] font-black uppercase">ВОЗВРАТ</span>`;
+                        profitText = `<span class="text-slate-400 font-black">0 ₽</span>`;
+                    }
+                }
+
+                const dateFormatted = new Date(item.created).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+                return `
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-5 border ${isHistory ? 'border-slate-700/50 bg-slate-800/30' : 'border-green-500/30 bg-green-900/10'} rounded-2xl fade-in gap-3 sm:gap-4">
+                    <div class="flex items-center gap-3 sm:gap-4">
+                        <div class="w-1.5 h-10 sm:h-12 ${isHistory ? (item.result === 'Выигрыш' ? 'bg-green-500' : item.result === 'Проигрыш' ? 'bg-red-500' : 'bg-slate-500') : 'bg-green-400'} rounded-full shrink-0"></div>
+                        <div class="min-w-0">
+                            <p class="font-black text-slate-200 text-sm tracking-tight break-words">${item.match}</p>
+                            <p class="text-[11px] font-bold text-slate-400 mt-0.5">${item.event}</p>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mt-1">${dateFormatted} • КФ <span class="text-green-400">${item.odds}</span></p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
+                        ${!isHistory ? `
+                        <div class="flex flex-col items-end gap-2 w-full">
+                            <div class="grid grid-cols-3 gap-1 sm:flex sm:gap-2 w-full sm:w-auto">
+                                <button onclick="updateStatus('${item.id}', 'Выигрыш')" class="btn-res bg-green-500">ВЫИГРЫШ</button>
+                                <button onclick="updateStatus('${item.id}', 'Проигрыш')" class="btn-res bg-red-500">ПРОИГРЫШ</button>
+                                <button onclick="updateStatus('${item.id}', 'Возврат')" class="btn-res bg-slate-400">ВОЗВРАТ</button>
+                            </div>
+                            <button onclick="deleteBet('${item.id}')" class="text-[9px] font-bold text-slate-500 hover:text-red-500 uppercase">Удалить</button>
+                        </div>
+                        ` : `
+                        <div class="flex flex-col items-end gap-1">
+                            <div class="flex items-center gap-2">
+                                <button onclick="deleteBet('${item.id}')" class="p-1.5 text-slate-500 hover:text-red-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                ${resultBadge}
+                            </div>
+                            <div class="mt-1 text-sm">${profitText}</div>
+                        </div>
+                        `}
+                        <p class="text-[10px] font-black text-slate-500 uppercase">Сумма: <span class="text-slate-300">${item.amount} ₽</span></p>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('profitChart').getContext('2d');
+            const finished = [...allBets].filter(b => b.result !== 'В процессе').reverse();
+            
+            let cumulative = 0;
+            const labels = ['Старт'];
+            const data = [0];
+
+            finished.forEach(b => {
+                cumulative += b.profit;
+                labels.push(new Date(b.created).toLocaleDateString('ru-RU'));
+                data.push(cumulative);
+            });
+
+            if (profitChartInstance) profitChartInstance.destroy();
+
+            profitChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Динамика банка (₽)',
+                        data: data,
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Montserrat', weight: 'bold' } } } },
+                    scales: {
+                        x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#64748b' } },
+                        y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#64748b' } }
+                    }
+                }
+            });
+        }
+
+        window.onload = () => refreshData(true);
+    </script>
+</body>
+</html>
